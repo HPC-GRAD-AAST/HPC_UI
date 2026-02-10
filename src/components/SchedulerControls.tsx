@@ -1,11 +1,34 @@
-import { useState, useEffect } from 'react';
-import { Settings, Cpu, TrendingUp, Brain, Target, BarChart } from 'lucide-react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { useState, useEffect } from "react";
 
-export function SchedulerControls({ schedulerType, onSchedulerChange, jobs }: any) {
+import {
+  Settings,
+  Cpu,
+  TrendingUp,
+  Brain,
+  Target,
+  BarChart,
+} from "lucide-react";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
+} from "recharts";
+
+export function SchedulerControls({
+  schedulerType,
+  onSchedulerChange,
+  jobs,
+}: any) {
   const [predictions, setPredictions] = useState<any[]>([]);
   const [decisionLogs, setDecisionLogs] = useState<any[]>([]);
   const [mlMetrics, setMlMetrics] = useState<any>(null);
+  const [baselineAlgorithm, setBaselineAlgorithm] =
+    useState<string>("first-fit");
 
   useEffect(() => {
     // Generate ML predictions
@@ -34,12 +57,19 @@ export function SchedulerControls({ schedulerType, onSchedulerChange, jobs }: an
         timestamp: new Date().toLocaleTimeString(),
         jobId: latestJob.id,
         scheduler: schedulerType,
-        decision: schedulerType === 'drl' ? 'ML-optimized placement on Node 3' : 'First-fit placement on Node 1',
-        reasoning: schedulerType === 'drl'
-          ? 'Predicted lowest contention and balanced resource utilization'
-          : 'First available node with sufficient resources',
-        expectedLatency: schedulerType === 'drl' ? Math.random() * 50 + 50 : Math.random() * 100 + 100,
-        confidence: schedulerType === 'drl' ? Math.random() * 20 + 80 : 100,
+        decision:
+          schedulerType === "drl"
+            ? "ML-optimized placement on Node 3"
+            : "First-fit placement on Node 1",
+        reasoning:
+          schedulerType === "drl"
+            ? "Predicted lowest contention and balanced resource utilization"
+            : "First available node with sufficient resources",
+        expectedLatency:
+          schedulerType === "drl"
+            ? Math.random() * 50 + 50
+            : Math.random() * 100 + 100,
+        confidence: schedulerType === "drl" ? Math.random() * 20 + 80 : 100,
       };
       setDecisionLogs((prev) => [log, ...prev.slice(0, 49)]);
     }
@@ -53,9 +83,9 @@ export function SchedulerControls({ schedulerType, onSchedulerChange, jobs }: an
       convergence: 98.2,
       explorationRate: 0.05,
       learningRate: 0.0001,
-      rewardFunction: 'Latency + Utilization + Fairness',
-      stateSpace: '128 dimensions',
-      actionSpace: '8 nodes × 4 strategies',
+      rewardFunction: "Latency + Utilization + Fairness",
+      stateSpace: "128 dimensions",
+      actionSpace: "8 nodes × 4 strategies",
     });
   }, []);
 
@@ -64,30 +94,34 @@ export function SchedulerControls({ schedulerType, onSchedulerChange, jobs }: an
       {/* Scheduler Selection */}
       <div className="bg-white rounded-lg border border-slate-200 p-6">
         <h2 className="text-slate-900 mb-2">Scheduler Configuration</h2>
-        <p className="text-slate-600 mb-6">Select and configure the scheduling algorithm</p>
+        <p className="text-slate-600 mb-6">
+          Select and configure the scheduling algorithm
+        </p>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Baseline Scheduler */}
           <button
-            onClick={() => onSchedulerChange('baseline')}
+            onClick={() => onSchedulerChange("baseline")}
             className={`p-6 rounded-lg border-2 transition-all text-left ${
-              schedulerType === 'baseline'
-                ? 'border-blue-600 bg-blue-50'
-                : 'border-slate-300 bg-white hover:border-slate-400'
+              schedulerType === "baseline"
+                ? "border-blue-600 bg-blue-50"
+                : "border-slate-300 bg-white hover:border-slate-400"
             }`}
           >
             <div className="flex items-start justify-between mb-4">
               <div className="p-3 bg-slate-100 rounded-lg">
                 <Settings className="w-6 h-6 text-slate-700" />
               </div>
-              {schedulerType === 'baseline' && (
+              {schedulerType === "baseline" && (
                 <div className="px-3 py-1 bg-blue-600 text-white rounded-full">
                   Active
                 </div>
               )}
             </div>
             <h3 className="text-slate-900 mb-2">Baseline Scheduler</h3>
-            <p className="text-slate-600 mb-4">Traditional first-fit scheduling algorithm</p>
+            <p className="text-slate-600 mb-4">
+              Traditional first-fit scheduling algorithm
+            </p>
             <ul className="space-y-2 text-slate-600">
               <li>• First-fit placement strategy</li>
               <li>• FIFO queue processing</li>
@@ -98,25 +132,27 @@ export function SchedulerControls({ schedulerType, onSchedulerChange, jobs }: an
 
           {/* DRL Scheduler */}
           <button
-            onClick={() => onSchedulerChange('drl')}
+            onClick={() => onSchedulerChange("drl")}
             className={`p-6 rounded-lg border-2 transition-all text-left ${
-              schedulerType === 'drl'
-                ? 'border-purple-600 bg-purple-50'
-                : 'border-slate-300 bg-white hover:border-slate-400'
+              schedulerType === "drl"
+                ? "border-purple-600 bg-purple-50"
+                : "border-slate-300 bg-white hover:border-slate-400"
             }`}
           >
             <div className="flex items-start justify-between mb-4">
               <div className="p-3 bg-purple-100 rounded-lg">
                 <Brain className="w-6 h-6 text-purple-700" />
               </div>
-              {schedulerType === 'drl' && (
+              {schedulerType === "drl" && (
                 <div className="px-3 py-1 bg-purple-600 text-white rounded-full">
                   Active
                 </div>
               )}
             </div>
             <h3 className="text-slate-900 mb-2">DRL-Based Scheduler</h3>
-            <p className="text-slate-600 mb-4">Deep reinforcement learning optimized scheduling</p>
+            <p className="text-slate-600 mb-4">
+              Deep reinforcement learning optimized scheduling
+            </p>
             <ul className="space-y-2 text-slate-600">
               <li>• ML-optimized job placement</li>
               <li>• Contention-aware decisions</li>
@@ -127,8 +163,67 @@ export function SchedulerControls({ schedulerType, onSchedulerChange, jobs }: an
         </div>
       </div>
 
+      {/* Baseline Scheduler Configuration */}
+      {schedulerType === "baseline" && (
+        <div className="bg-gradient-to-br from-blue-50 to-slate-50 rounded-lg border border-blue-200 p-6">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="p-3 bg-blue-600 rounded-lg">
+              <Settings className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h2 className="text-slate-900">
+                Baseline Scheduler Configuration
+              </h2>
+              <p className="text-slate-600">
+                Select the placement algorithm for the baseline scheduler
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-slate-700 font-medium mb-3">
+                Placement Algorithm
+              </label>
+              <select
+                value={baselineAlgorithm}
+                onChange={(e) => setBaselineAlgorithm(e.target.value)}
+                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+              >
+                <option value="first-fit">First Fit Placement</option>
+                <option value="fifo">FIFO (First In First Out)</option>
+                <option value="best-fit">Best Fit</option>
+                <option value="round-robin">Round Robin</option>
+              </select>
+            </div>
+
+            <div className="bg-white rounded-lg p-4 border border-slate-200">
+              <div className="text-slate-700 font-medium mb-2">
+                Selected Algorithm
+              </div>
+              <div className="text-blue-600 font-semibold capitalize">
+                {baselineAlgorithm === "first-fit" && "First Fit Placement"}
+                {baselineAlgorithm === "fifo" && "FIFO (First In First Out)"}
+                {baselineAlgorithm === "best-fit" && "Best Fit"}
+                {baselineAlgorithm === "round-robin" && "Round Robin"}
+              </div>
+              <p className="text-slate-600 text-sm mt-2">
+                {baselineAlgorithm === "first-fit" &&
+                  "Assigns each job to the first node with sufficient resources"}
+                {baselineAlgorithm === "fifo" &&
+                  "Processes jobs in the order they arrive, first come first served"}
+                {baselineAlgorithm === "best-fit" &&
+                  "Places each job on the node that leaves the least remaining space"}
+                {baselineAlgorithm === "round-robin" &&
+                  "Distributes jobs evenly across all available nodes in sequence"}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ML Model Information (DRL Only) */}
-      {schedulerType === 'drl' && mlMetrics && (
+      {schedulerType === "drl" && mlMetrics && (
         <div className="bg-gradient-to-br from-purple-50 to-blue-50 rounded-lg border border-purple-200 p-6">
           <div className="flex items-center gap-3 mb-6">
             <div className="p-3 bg-purple-600 rounded-lg">
@@ -153,7 +248,9 @@ export function SchedulerControls({ schedulerType, onSchedulerChange, jobs }: an
             </div>
             <div className="bg-white rounded-lg p-4">
               <div className="text-slate-600 mb-1">Training Episodes</div>
-              <div className="text-slate-900">{mlMetrics.trainingEpisodes.toLocaleString()}</div>
+              <div className="text-slate-900">
+                {mlMetrics.trainingEpisodes.toLocaleString()}
+              </div>
             </div>
             <div className="bg-white rounded-lg p-4">
               <div className="text-slate-600 mb-1">Convergence</div>
@@ -193,13 +290,15 @@ export function SchedulerControls({ schedulerType, onSchedulerChange, jobs }: an
       )}
 
       {/* ML Predictions */}
-      {schedulerType === 'drl' && (
+      {schedulerType === "drl" && (
         <div className="bg-white rounded-lg border border-slate-200 p-6">
           <div className="flex items-center gap-3 mb-6">
             <Target className="w-6 h-6 text-blue-600" />
             <div>
               <h3 className="text-slate-900">ML Scheduler Predictions</h3>
-              <p className="text-slate-600">Real-time predictions for optimal job placement</p>
+              <p className="text-slate-600">
+                Real-time predictions for optimal job placement
+              </p>
             </div>
           </div>
 
@@ -209,8 +308,8 @@ export function SchedulerControls({ schedulerType, onSchedulerChange, jobs }: an
                 key={pred.nodeId}
                 className={`p-4 rounded-lg border-2 ${
                   pred.optimalPlacement
-                    ? 'border-green-500 bg-green-50'
-                    : 'border-slate-300 bg-white'
+                    ? "border-green-500 bg-green-50"
+                    : "border-slate-300 bg-white"
                 }`}
               >
                 <div className="flex items-center justify-between mb-3">
@@ -226,7 +325,9 @@ export function SchedulerControls({ schedulerType, onSchedulerChange, jobs }: an
                   <div>
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-slate-600">Predicted Load</span>
-                      <span className="text-slate-900">{pred.predictedLoad.toFixed(0)}%</span>
+                      <span className="text-slate-900">
+                        {pred.predictedLoad.toFixed(0)}%
+                      </span>
                     </div>
                     <div className="w-full bg-slate-200 rounded-full h-1.5">
                       <div
@@ -238,12 +339,16 @@ export function SchedulerControls({ schedulerType, onSchedulerChange, jobs }: an
 
                   <div>
                     <div className="text-slate-600">Est. Latency</div>
-                    <div className="text-slate-900">{pred.predictedLatency.toFixed(0)}ms</div>
+                    <div className="text-slate-900">
+                      {pred.predictedLatency.toFixed(0)}ms
+                    </div>
                   </div>
 
                   <div>
                     <div className="text-slate-600">Confidence</div>
-                    <div className="text-green-700">{pred.confidence.toFixed(1)}%</div>
+                    <div className="text-green-700">
+                      {pred.confidence.toFixed(1)}%
+                    </div>
                   </div>
                 </div>
               </div>
@@ -258,7 +363,9 @@ export function SchedulerControls({ schedulerType, onSchedulerChange, jobs }: an
           <BarChart className="w-6 h-6 text-slate-700" />
           <div>
             <h3 className="text-slate-900">Scheduler Decision Logs</h3>
-            <p className="text-slate-600">Historical scheduling decisions for offline analysis</p>
+            <p className="text-slate-600">
+              Historical scheduling decisions for offline analysis
+            </p>
           </div>
         </div>
 
@@ -266,13 +373,23 @@ export function SchedulerControls({ schedulerType, onSchedulerChange, jobs }: an
           <table className="w-full">
             <thead className="bg-slate-50 border-b border-slate-200">
               <tr>
-                <th className="px-4 py-3 text-left text-slate-700">Timestamp</th>
+                <th className="px-4 py-3 text-left text-slate-700">
+                  Timestamp
+                </th>
                 <th className="px-4 py-3 text-left text-slate-700">Job ID</th>
-                <th className="px-4 py-3 text-left text-slate-700">Scheduler</th>
+                <th className="px-4 py-3 text-left text-slate-700">
+                  Scheduler
+                </th>
                 <th className="px-4 py-3 text-left text-slate-700">Decision</th>
-                <th className="px-4 py-3 text-left text-slate-700">Reasoning</th>
-                <th className="px-4 py-3 text-left text-slate-700">Expected Latency</th>
-                <th className="px-4 py-3 text-left text-slate-700">Confidence</th>
+                <th className="px-4 py-3 text-left text-slate-700">
+                  Reasoning
+                </th>
+                <th className="px-4 py-3 text-left text-slate-700">
+                  Expected Latency
+                </th>
+                <th className="px-4 py-3 text-left text-slate-700">
+                  Confidence
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
@@ -283,9 +400,9 @@ export function SchedulerControls({ schedulerType, onSchedulerChange, jobs }: an
                   <td className="px-4 py-3">
                     <span
                       className={`inline-block px-2 py-1 rounded text-xs ${
-                        log.scheduler === 'drl'
-                          ? 'bg-purple-100 text-purple-800'
-                          : 'bg-slate-100 text-slate-800'
+                        log.scheduler === "drl"
+                          ? "bg-purple-100 text-purple-800"
+                          : "bg-slate-100 text-slate-800"
                       }`}
                     >
                       {log.scheduler.toUpperCase()}
@@ -293,14 +410,20 @@ export function SchedulerControls({ schedulerType, onSchedulerChange, jobs }: an
                   </td>
                   <td className="px-4 py-3 text-slate-700">{log.decision}</td>
                   <td className="px-4 py-3 text-slate-600">{log.reasoning}</td>
-                  <td className="px-4 py-3 text-slate-700">{log.expectedLatency.toFixed(0)}ms</td>
+                  <td className="px-4 py-3 text-slate-700">
+                    {log.expectedLatency.toFixed(0)}ms
+                  </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
-                      <span className="text-slate-700">{log.confidence.toFixed(0)}%</span>
+                      <span className="text-slate-700">
+                        {log.confidence.toFixed(0)}%
+                      </span>
                       <div className="w-16 bg-slate-200 rounded-full h-1.5">
                         <div
                           className={`h-1.5 rounded-full ${
-                            log.confidence >= 80 ? 'bg-green-600' : 'bg-yellow-600'
+                            log.confidence >= 80
+                              ? "bg-green-600"
+                              : "bg-yellow-600"
                           }`}
                           style={{ width: `${log.confidence}%` }}
                         />
@@ -323,7 +446,9 @@ export function SchedulerControls({ schedulerType, onSchedulerChange, jobs }: an
       {/* Performance Comparison Chart */}
       {decisionLogs.length > 0 && (
         <div className="bg-white rounded-lg border border-slate-200 p-6">
-          <h3 className="text-slate-900 mb-4">Scheduler Performance Comparison</h3>
+          <h3 className="text-slate-900 mb-4">
+            Scheduler Performance Comparison
+          </h3>
           <ResponsiveContainer width="100%" height={300}>
             <LineChart data={decisionLogs.slice(0, 20).reverse()}>
               <CartesianGrid strokeDasharray="3 3" />
@@ -337,7 +462,7 @@ export function SchedulerControls({ schedulerType, onSchedulerChange, jobs }: an
                 stroke="#3b82f6"
                 strokeWidth={2}
                 name="Expected Latency (ms)"
-                dot={{ fill: '#3b82f6' }}
+                dot={{ fill: "#3b82f6" }}
               />
               <Line
                 type="monotone"
@@ -345,7 +470,7 @@ export function SchedulerControls({ schedulerType, onSchedulerChange, jobs }: an
                 stroke="#10b981"
                 strokeWidth={2}
                 name="Confidence (%)"
-                dot={{ fill: '#10b981' }}
+                dot={{ fill: "#10b981" }}
               />
             </LineChart>
           </ResponsiveContainer>
