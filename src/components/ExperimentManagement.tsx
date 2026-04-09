@@ -1,478 +1,319 @@
-import { useState } from 'react';
-import { Play, Save, FileText, Settings, BarChart3, Download, Plus, GitCompare } from 'lucide-react';
-import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts';
-import { ExperimentComparison } from './ExperimentComparison';
+import { useState } from "react";
+import { Play, FileText, Download, Plus, Trash2, RefreshCw } from "lucide-react";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
+} from "recharts";
+import {
+  useExperimentConfigs,
+  useCreateExperimentConfig,
+  useDeleteExperimentConfig,
+  useTriggerExperimentRun,
+  useExperimentRuns,
+  useClusters,
+  useTraces,
+} from "../lib/hooks";
+import { SchedulerPolicy } from "../lib/api";
+import { Button } from "./ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 
-export function ExperimentManagement({ schedulerType }: any) {
-  const [config, setConfig] = useState({
-    clusterSize: 8,
-    nodeCapacityCpu: 16,
-    nodeCapacityRam: 32,
-    schedulingPolicy: 'drl',
-    workloadPattern: 'uniform',
-    jobArrivalRate: 5,
-    experimentDuration: 3600,
+const POLICIES: SchedulerPolicy[] = [
+  "fcfs",
+  "sjf",
+  "priority",
+  "roundrobin",
+  "bestfit",
+  "worstfit",
+  "loadbalancing",
+  "easybackfill",
+];
+
+function StatusBadge({ status }: { status: string }) {
+  const colors: Record<string, string> = {
+    done: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
+    running: "bg-sky-500/15 text-sky-700 dark:text-sky-400",
+    pending: "bg-amber-500/15 text-amber-800 dark:text-amber-300",
+    failed: "bg-destructive/15 text-destructive",
+  };
+  return (
+    <span
+      className={`inline-block rounded-full px-3 py-1 text-xs font-medium ${colors[status] ?? "bg-muted text-muted-foreground"}`}
+    >
+      {status.charAt(0).toUpperCase() + status.slice(1)}
+    </span>
+  );
+}
+
+function RunsPanel({ configId }: { configId: string }) {
+  const { data: runs, isLoading } = useExperimentRuns(configId);
+  const { mutate: triggerRun, isPending } = useTriggerExperimentRun();
+
+  if (isLoading) return <div className="py-4 text-muted-foreground">Loading runs...</div>;
+
+  const comparisonData = (runs ?? [])
+    .filter((r) => r.status === "done")
+    .map((r, i) => ({ name: `Run ${i + 1}`, status: r.status, id: r.id }));
+
+  return (
+    <div className="mt-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <span className="text-foreground">{runs?.length ?? 0} runs</span>
+        <Button
+          type="button"
+          size="sm"
+          onClick={() => triggerRun(configId)}
+          disabled={isPending}
+          className="shadow-[0_0_18px_-8px_var(--neon-glow)]"
+        >
+          {isPending ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+          Run
+        </Button>
+      </div>
+      <div className="max-h-48 space-y-2 overflow-y-auto">
+        {(runs ?? []).map((run) => (
+          <div
+            key={run.id}
+            className="flex items-center justify-between rounded-md border border-border bg-muted/30 p-2 text-sm transition-colors hover:bg-muted/50"
+          >
+            <span className="font-mono text-xs text-muted-foreground">{run.id.slice(0, 8)}…</span>
+            <StatusBadge status={run.status} />
+            <span className="text-xs text-muted-foreground">{new Date(run.created_at).toLocaleString()}</span>
+          </div>
+        ))}
+        {!runs?.length && <div className="py-2 text-sm text-muted-foreground">No runs yet</div>}
+      </div>
+      {comparisonData.length >= 2 && (
+        <div className="mt-4">
+          <div className="mb-2 text-sm font-medium text-foreground">Completed Runs</div>
+          <ResponsiveContainer width="100%" height={120}>
+            <BarChart data={comparisonData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="name" />
+              <YAxis hide />
+              <Tooltip />
+              <Bar dataKey="id" fill="#34d399" name="Run" />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function ExperimentManagement() {
+  const { data: configs, isLoading: configsLoading } = useExperimentConfigs();
+  const { data: clusters } = useClusters();
+  const { data: traces } = useTraces();
+  const { mutate: createConfig, isPending: creating } = useCreateExperimentConfig();
+  const { mutate: deleteConfig } = useDeleteExperimentConfig();
+
+  const [showForm, setShowForm] = useState(false);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [form, setForm] = useState({
+    name: "",
+    cluster_id: "",
+    workload_trace_id: "",
+    policy: "fcfs" as SchedulerPolicy,
+    seed: 42,
+    description: "",
   });
 
-  const [experiments, setExperiments] = useState([
-    {
-      id: 'exp-001',
-      name: 'Baseline vs DRL - Uniform Workload',
-      status: 'completed',
-      date: '2024-12-20',
-      clusterSize: 8,
-      totalJobs: 1000,
-      scheduler: 'both',
-      avgLatencyBaseline: 145.6,
-      avgLatencyDRL: 98.4,
-      improvement: 32.4,
-      duration: 3600,
-      throughputBaseline: 65.3,
-      throughputDRL: 92.7,
-      utilizationBaseline: 68.5,
-      utilizationDRL: 84.2,
-      makespanBaseline: 342.8,
-      makespanDRL: 256.1,
-    },
-    {
-      id: 'exp-002',
-      name: 'DRL - High Contention Scenario',
-      status: 'completed',
-      date: '2024-12-22',
-      clusterSize: 8,
-      totalJobs: 1500,
-      scheduler: 'drl',
-      avgLatencyBaseline: 189.3,
-      avgLatencyDRL: 112.7,
-      improvement: 40.5,
-      duration: 3600,
-      throughputBaseline: 58.2,
-      throughputDRL: 87.4,
-      utilizationBaseline: 72.3,
-      utilizationDRL: 88.6,
-      makespanBaseline: 398.5,
-      makespanDRL: 268.9,
-    },
-    {
-      id: 'exp-003',
-      name: 'Scalability Test - 16 Nodes',
-      status: 'running',
-      date: '2024-12-27',
-      clusterSize: 16,
-      totalJobs: 2500,
-      scheduler: 'both',
-      avgLatencyBaseline: null,
-      avgLatencyDRL: null,
-      improvement: null,
-      duration: 7200,
-      throughputBaseline: null,
-      throughputDRL: null,
-      utilizationBaseline: null,
-      utilizationDRL: null,
-      makespanBaseline: null,
-      makespanDRL: null,
-    },
-  ]);
+  const readyTraces = (traces ?? []).filter((t) => t.status === "ready");
 
-  const [showConfigModal, setShowConfigModal] = useState(false);
-  const [selectedExperiments, setSelectedExperiments] = useState<string[]>([]);
-  const [showComparison, setShowComparison] = useState(false);
-
-  const handleRunExperiment = () => {
-    const newExperiment = {
-      id: `exp-${String(experiments.length + 1).padStart(3, '0')}`,
-      name: `Experiment ${experiments.length + 1}`,
-      status: 'running',
-      date: new Date().toISOString().split('T')[0],
-      clusterSize: config.clusterSize,
-      totalJobs: 0,
-      scheduler: config.schedulingPolicy,
-      avgLatencyBaseline: null,
-      avgLatencyDRL: null,
-      improvement: null,
-      duration: config.experimentDuration,
-      throughputBaseline: null,
-      throughputDRL: null,
-      utilizationBaseline: null,
-      utilizationDRL: null,
-      makespanBaseline: null,
-      makespanDRL: null,
-    };
-
-    setExperiments([newExperiment, ...experiments]);
-    setShowConfigModal(false);
-  };
-
-  const toggleExperimentSelection = (expId: string) => {
-    setSelectedExperiments((prev) =>
-      prev.includes(expId)
-        ? prev.filter((id) => id !== expId)
-        : prev.length < 3
-        ? [...prev, expId]
-        : prev
+  const handleCreate = () => {
+    if (!form.name || !form.cluster_id || !form.workload_trace_id) return;
+    createConfig(
+      { ...form, description: form.description || undefined },
+      { onSuccess: () => { setShowForm(false); setForm({ name: "", cluster_id: "", workload_trace_id: "", policy: "fcfs", seed: 42, description: "" }); } }
     );
   };
 
-  const selectedExperimentsData = experiments.filter((exp) =>
-    selectedExperiments.includes(exp.id)
-  );
-
-  const comparisonChartData = selectedExperimentsData.map((exp) => ({
-    name: exp.id,
-    'Baseline Latency': exp.avgLatencyBaseline || 0,
-    'DRL Latency': exp.avgLatencyDRL || 0,
-    'Baseline Throughput': exp.throughputBaseline || 0,
-    'DRL Throughput': exp.throughputDRL || 0,
-    'Baseline Utilization': exp.utilizationBaseline || 0,
-    'DRL Utilization': exp.utilizationDRL || 0,
-  }));
-
-  const workloadPatterns = ['uniform', 'bursty', 'periodic', 'mixed'];
-  const schedulingPolicies = ['baseline', 'drl', 'both'];
-
   return (
     <div className="space-y-6">
-      {/* Configuration Panel */}
-      <div className="bg-white rounded-lg border border-slate-200 p-6">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h2 className="text-slate-900">Experiment Configuration</h2>
-            <p className="text-slate-600 mt-1">Configure simulation parameters for controlled experiments</p>
+      <Card>
+        <CardHeader className="flex flex-col gap-4 space-y-0 sm:flex-row sm:items-start sm:justify-between">
+          <div className="space-y-1.5">
+            <CardTitle>Experiments</CardTitle>
+            <CardDescription>Configure and run scheduling experiments against real workload traces</CardDescription>
           </div>
-          <button
-            onClick={() => setShowConfigModal(!showConfigModal)}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
-          >
-            <Plus className="w-5 h-5" />
-            <span>New Experiment</span>
-          </button>
-        </div>
-
-        {showConfigModal && (
-          <div className="border-t border-slate-200 pt-6 mt-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {/* Cluster Size */}
+          <Button type="button" onClick={() => setShowForm(!showForm)} className="shrink-0 shadow-[0_0_20px_-8px_var(--neon-glow)]">
+            <Plus className="h-5 w-5" />
+            New Experiment
+          </Button>
+        </CardHeader>
+        <CardContent className="pt-0">
+        {showForm && (
+          <div className="border-t border-border pt-6 mt-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <div>
-                <label className="block text-slate-700 mb-2">
-                  Cluster Size (Nodes)
-                </label>
+                <label className="native-label">Name</label>
                 <input
-                  type="number"
-                  value={config.clusterSize}
-                  onChange={(e) => setConfig({ ...config, clusterSize: parseInt(e.target.value) })}
-                  min="1"
-                  max="128"
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  type="text"
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  placeholder="My experiment"
+                  className="native-field"
                 />
               </div>
 
-              {/* Node CPU Capacity */}
               <div>
-                <label className="block text-slate-700 mb-2">
-                  Node CPU Capacity (cores)
-                </label>
-                <input
-                  type="number"
-                  value={config.nodeCapacityCpu}
-                  onChange={(e) => setConfig({ ...config, nodeCapacityCpu: parseInt(e.target.value) })}
-                  min="1"
-                  max="128"
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-
-              {/* Node RAM Capacity */}
-              <div>
-                <label className="block text-slate-700 mb-2">
-                  Node RAM Capacity (GB)
-                </label>
-                <input
-                  type="number"
-                  value={config.nodeCapacityRam}
-                  onChange={(e) => setConfig({ ...config, nodeCapacityRam: parseInt(e.target.value) })}
-                  min="1"
-                  max="512"
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-
-              {/* Scheduling Policy */}
-              <div>
-                <label className="block text-slate-700 mb-2">
-                  Scheduling Policy
-                </label>
+                <label className="native-label">Cluster</label>
                 <select
-                  value={config.schedulingPolicy}
-                  onChange={(e) => setConfig({ ...config, schedulingPolicy: e.target.value })}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={form.cluster_id}
+                  onChange={(e) => setForm({ ...form, cluster_id: e.target.value })}
+                  className="native-field"
                 >
-                  {schedulingPolicies.map((policy) => (
-                    <option key={policy} value={policy}>
-                      {policy.toUpperCase()}
-                    </option>
+                  <option value="">Select cluster…</option>
+                  {(clusters ?? []).map((c) => (
+                    <option key={c.id} value={c.id}>{c.name} ({c.node_count} nodes)</option>
                   ))}
                 </select>
               </div>
 
-              {/* Workload Pattern */}
               <div>
-                <label className="block text-slate-700 mb-2">
-                  Workload Pattern
-                </label>
+                <label className="native-label">Workload Trace</label>
                 <select
-                  value={config.workloadPattern}
-                  onChange={(e) => setConfig({ ...config, workloadPattern: e.target.value })}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={form.workload_trace_id}
+                  onChange={(e) => setForm({ ...form, workload_trace_id: e.target.value })}
+                  className="native-field"
                 >
-                  {workloadPatterns.map((pattern) => (
-                    <option key={pattern} value={pattern}>
-                      {pattern.charAt(0).toUpperCase() + pattern.slice(1)}
-                    </option>
+                  <option value="">Select trace…</option>
+                  {readyTraces.map((t) => (
+                    <option key={t.id} value={t.id}>{t.name} ({t.job_count.toLocaleString()} jobs)</option>
+                  ))}
+                </select>
+                {!readyTraces.length && (
+                  <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">No ready traces — upload one first</p>
+                )}
+              </div>
+
+              <div>
+                <label className="native-label">Scheduling Policy</label>
+                <select
+                  value={form.policy}
+                  onChange={(e) => setForm({ ...form, policy: e.target.value as SchedulerPolicy })}
+                  className="native-field"
+                >
+                  {POLICIES.map((p) => (
+                    <option key={p} value={p}>{p.toUpperCase()}</option>
                   ))}
                 </select>
               </div>
 
-              {/* Job Arrival Rate */}
               <div>
-                <label className="block text-slate-700 mb-2">
-                  Job Arrival Rate (jobs/min)
-                </label>
+                <label className="native-label">Random Seed</label>
                 <input
                   type="number"
-                  value={config.jobArrivalRate}
-                  onChange={(e) => setConfig({ ...config, jobArrivalRate: parseInt(e.target.value) })}
-                  min="1"
-                  max="100"
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={form.seed}
+                  onChange={(e) => setForm({ ...form, seed: parseInt(e.target.value) })}
+                  className="native-field"
                 />
               </div>
 
-              {/* Experiment Duration */}
               <div>
-                <label className="block text-slate-700 mb-2">
-                  Duration (seconds)
-                </label>
+                <label className="native-label">Description (optional)</label>
                 <input
-                  type="number"
-                  value={config.experimentDuration}
-                  onChange={(e) => setConfig({ ...config, experimentDuration: parseInt(e.target.value) })}
-                  min="60"
-                  max="86400"
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  type="text"
+                  value={form.description}
+                  onChange={(e) => setForm({ ...form, description: e.target.value })}
+                  className="native-field"
                 />
               </div>
             </div>
 
-            <div className="flex gap-3 mt-6">
-              <button
-                onClick={handleRunExperiment}
-                className="flex items-center gap-2 px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+            <div className="mt-4 flex gap-3">
+              <Button
+                type="button"
+                onClick={handleCreate}
+                disabled={creating || !form.name || !form.cluster_id || !form.workload_trace_id}
               >
-                <Play className="w-5 h-5" />
-                <span>Run Experiment</span>
-              </button>
-              <button
-                onClick={() => setShowConfigModal(false)}
-                className="px-6 py-3 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg transition-colors"
-              >
+                {creating ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                Create
+              </Button>
+              <Button type="button" variant="secondary" onClick={() => setShowForm(false)}>
                 Cancel
-              </button>
+              </Button>
             </div>
           </div>
         )}
+        </CardContent>
+      </Card>
 
-        {/* Current Configuration Summary */}
-        {!showConfigModal && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="p-4 bg-slate-50 rounded-lg">
-              <div className="text-slate-600 mb-1">Cluster Size</div>
-              <div className="text-slate-900">{config.clusterSize} nodes</div>
-            </div>
-            <div className="p-4 bg-slate-50 rounded-lg">
-              <div className="text-slate-600 mb-1">Node Capacity</div>
-              <div className="text-slate-900">{config.nodeCapacityCpu} CPU / {config.nodeCapacityRam}GB RAM</div>
-            </div>
-            <div className="p-4 bg-slate-50 rounded-lg">
-              <div className="text-slate-600 mb-1">Workload Pattern</div>
-              <div className="text-slate-900 capitalize">{config.workloadPattern}</div>
-            </div>
-            <div className="p-4 bg-slate-50 rounded-lg">
-              <div className="text-slate-600 mb-1">Arrival Rate</div>
-              <div className="text-slate-900">{config.jobArrivalRate} jobs/min</div>
-            </div>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Experiment Configs</CardTitle>
+        </CardHeader>
+        <CardContent className="pt-0">
+        {configsLoading && <div className="text-muted-foreground py-8 text-center">Loading…</div>}
+
+        {!configsLoading && !configs?.length && (
+          <div className="py-8 text-center text-muted-foreground">
+            No experiments yet. Create one above.
           </div>
         )}
-      </div>
 
-      {/* Experiment History */}
-      <div className="bg-white rounded-lg border border-slate-200 p-6">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h2 className="text-slate-900">Experiment History</h2>
-            <p className="text-slate-600 mt-1">View and analyze past experiment results</p>
-          </div>
-          <button className="flex items-center gap-2 px-4 py-2 bg-slate-600 hover:bg-slate-700 text-white rounded-lg transition-colors">
-            <Download className="w-5 h-5" />
-            <span>Export All</span>
-          </button>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-slate-50 border-b border-slate-200">
-              <tr>
-                <th className="px-4 py-3 text-left text-slate-700">Experiment ID</th>
-                <th className="px-4 py-3 text-left text-slate-700">Name</th>
-                <th className="px-4 py-3 text-left text-slate-700">Status</th>
-                <th className="px-4 py-3 text-left text-slate-700">Date</th>
-                <th className="px-4 py-3 text-left text-slate-700">Cluster</th>
-                <th className="px-4 py-3 text-left text-slate-700">Jobs</th>
-                <th className="px-4 py-3 text-left text-slate-700">Baseline Latency</th>
-                <th className="px-4 py-3 text-left text-slate-700">DRL Latency</th>
-                <th className="px-4 py-3 text-left text-slate-700">Improvement</th>
-                <th className="px-4 py-3 text-left text-slate-700">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-200">
-              {experiments.map((exp) => (
-                <tr key={exp.id} className="hover:bg-slate-50">
-                  <td className="px-4 py-3 text-slate-700">{exp.id}</td>
-                  <td className="px-4 py-3 text-slate-900">{exp.name}</td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`inline-block px-3 py-1 rounded-full text-xs ${
-                        exp.status === 'completed'
-                          ? 'bg-green-100 text-green-800'
-                          : exp.status === 'running'
-                          ? 'bg-blue-100 text-blue-800'
-                          : 'bg-yellow-100 text-yellow-800'
-                      }`}
-                    >
-                      {exp.status.charAt(0).toUpperCase() + exp.status.slice(1)}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-slate-700">{exp.date}</td>
-                  <td className="px-4 py-3 text-slate-700">{exp.clusterSize} nodes</td>
-                  <td className="px-4 py-3 text-slate-700">{exp.totalJobs}</td>
-                  <td className="px-4 py-3 text-slate-700">
-                    {exp.avgLatencyBaseline ? `${exp.avgLatencyBaseline}ms` : '-'}
-                  </td>
-                  <td className="px-4 py-3 text-slate-700">
-                    {exp.avgLatencyDRL ? `${exp.avgLatencyDRL}ms` : '-'}
-                  </td>
-                  <td className="px-4 py-3">
-                    {exp.improvement ? (
-                      <span className="text-green-600">+{exp.improvement}%</span>
-                    ) : (
-                      <span className="text-slate-400">-</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex gap-2">
-                      <button className="p-2 text-blue-600 hover:bg-blue-50 rounded transition-colors">
-                        <FileText className="w-4 h-4" />
-                      </button>
-                      <button className="p-2 text-slate-600 hover:bg-slate-50 rounded transition-colors">
-                        <Download className="w-4 h-4" />
-                      </button>
+        <div className="space-y-3">
+          {(configs ?? []).map((cfg) => (
+            <div key={cfg.id} className="overflow-hidden rounded-lg border border-border transition-shadow hover:shadow-md">
+              <div
+                className="flex cursor-pointer items-center justify-between p-4 transition-colors hover:bg-muted/40"
+                onClick={() => setExpandedId(expandedId === cfg.id ? null : cfg.id)}
+                onKeyDown={(e) => e.key === "Enter" && setExpandedId(expandedId === cfg.id ? null : cfg.id)}
+                role="button"
+                tabIndex={0}
+              >
+                <div className="flex items-center gap-4">
+                  <div>
+                    <div className="font-medium text-foreground">{cfg.name}</div>
+                    <div className="mt-0.5 text-sm text-muted-foreground">
+                      {cfg.policy.toUpperCase()} · {new Date(cfg.created_at).toLocaleDateString()}
                     </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      deleteConfig(cfg.id);
+                    }}
+                    className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <Download className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <FileText className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
 
-      {/* Experiment Metadata */}
-      <div className="bg-white rounded-lg border border-slate-200 p-6">
-        <h2 className="text-slate-900 mb-4">Recent Experiment Details</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <h3 className="text-slate-700 mb-3">Configuration Metadata</h3>
-            <div className="space-y-3">
-              <div className="flex justify-between p-3 bg-slate-50 rounded">
-                <span className="text-slate-600">Experiment ID</span>
-                <span className="text-slate-900">exp-001</span>
-              </div>
-              <div className="flex justify-between p-3 bg-slate-50 rounded">
-                <span className="text-slate-600">Scheduler Type</span>
-                <span className="text-slate-900">Both (Baseline + DRL)</span>
-              </div>
-              <div className="flex justify-between p-3 bg-slate-50 rounded">
-                <span className="text-slate-600">Workload Type</span>
-                <span className="text-slate-900">Uniform Distribution</span>
-              </div>
-              <div className="flex justify-between p-3 bg-slate-50 rounded">
-                <span className="text-slate-600">Random Seed</span>
-                <span className="text-slate-900">42</span>
-              </div>
+              {expandedId === cfg.id && (
+                <div className="border-t border-border bg-muted/25 p-4">
+                  <RunsPanel configId={cfg.id} />
+                </div>
+              )}
             </div>
-          </div>
-
-          <div>
-            <h3 className="text-slate-700 mb-3">Performance Results</h3>
-            <div className="space-y-3">
-              <div className="flex justify-between p-3 bg-slate-50 rounded">
-                <span className="text-slate-600">Total Runtime</span>
-                <span className="text-slate-900">3,600s</span>
-              </div>
-              <div className="flex justify-between p-3 bg-slate-50 rounded">
-                <span className="text-slate-600">Jobs Completed</span>
-                <span className="text-slate-900">1,000</span>
-              </div>
-              <div className="flex justify-between p-3 bg-slate-50 rounded">
-                <span className="text-slate-600">Success Rate</span>
-                <span className="text-green-600">99.2%</span>
-              </div>
-              <div className="flex justify-between p-3 bg-slate-50 rounded">
-                <span className="text-slate-600">Avg Improvement</span>
-                <span className="text-green-600">+32.4%</span>
-              </div>
-            </div>
-          </div>
+          ))}
         </div>
-      </div>
-
-      {/* Controlled Experiment Setup */}
-      <div className="bg-gradient-to-br from-blue-50 to-purple-50 rounded-lg border border-blue-200 p-6">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="p-3 bg-blue-600 rounded-lg">
-            <BarChart3 className="w-6 h-6 text-white" />
-          </div>
-          <div>
-            <h3 className="text-slate-900">Controlled Experiment Guidelines</h3>
-            <p className="text-slate-600">Best practices for fair scheduler comparison</p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="bg-white rounded-lg p-4">
-            <h4 className="text-slate-900 mb-2">✓ Use Identical Workloads</h4>
-            <p className="text-slate-600">Run both schedulers with the same job sequences using fixed random seeds</p>
-          </div>
-          <div className="bg-white rounded-lg p-4">
-            <h4 className="text-slate-900 mb-2">✓ Control Variables</h4>
-            <p className="text-slate-600">Keep cluster configuration, node capacities, and arrival patterns constant</p>
-          </div>
-          <div className="bg-white rounded-lg p-4">
-            <h4 className="text-slate-900 mb-2">✓ Multiple Runs</h4>
-            <p className="text-slate-600">Execute 3-5 runs per configuration to account for variance</p>
-          </div>
-          <div className="bg-white rounded-lg p-4">
-            <h4 className="text-slate-900 mb-2">✓ Comprehensive Metrics</h4>
-            <p className="text-slate-600">Track latency, throughput, utilization, and fairness metrics</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Experiment Comparison */}
-      {showComparison && (
-        <div className="bg-white rounded-lg border border-slate-200 p-6">
-          <h2 className="text-slate-900 mb-4">Experiment Comparison</h2>
-          <ExperimentComparison data={comparisonChartData} />
-        </div>
-      )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

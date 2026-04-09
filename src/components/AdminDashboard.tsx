@@ -1,332 +1,282 @@
-import { useState, useEffect } from 'react';
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts';
-import { TrendingUp, TrendingDown, Activity, Clock, Zap, Server } from 'lucide-react';
+import { useMemo, useState } from "react";
+import type { ColumnDef } from "@tanstack/react-table";
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
+} from "recharts";
+import { Activity, Clock, Zap, Server, AlertCircle, LayoutGrid, Table2 } from "lucide-react";
+import { useDeleteSimulation, useSimulations } from "../lib/hooks";
+import type { SimulationSummary } from "../lib/api";
+import { chartCss, chartGridProps, chartTooltipProps } from "../lib/chart-theme";
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
+import { DataTable, DataTableColumnHeader } from "./ui/data-table";
+import { EmptyState } from "./ui/empty-state";
+import { Skeleton } from "./ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
+import { SimulationTableFilters } from "./simulation/simulation-table-filters";
+import {
+  SimulationDeleteButton,
+  SimulationEnergyCell,
+  SimulationJobsCell,
+  SimulationPolicyBadge,
+  SimulationStatusBadge,
+  SimulationTurnaroundCell,
+  SimulationWaitCell,
+} from "./simulation/simulation-table-cells";
 
-export function AdminDashboard({ jobs, schedulerType, simulationState }: any) {
-  const [metrics, setMetrics] = useState<any[]>([]);
-  const [heatmapData, setHeatmapData] = useState<any[]>([]);
-  const [comparisonData, setComparisonData] = useState<any>(null);
+function MetricCard({
+  label,
+  value,
+  icon: Icon,
+  tint,
+  sub,
+}: {
+  label: string;
+  value: string;
+  icon: typeof Activity;
+  tint: "primary" | "emerald" | "amber" | "violet";
+  sub?: string;
+}) {
+  const tintCls: Record<string, string> = {
+    primary: "bg-primary/12 text-primary ring-primary/25",
+    emerald: "bg-emerald-500/12 text-emerald-700 ring-emerald-500/25 dark:text-emerald-400",
+    amber: "bg-amber-500/12 text-amber-800 ring-amber-500/25 dark:text-amber-300",
+    violet: "bg-violet-500/12 text-violet-700 ring-violet-500/25 dark:text-violet-300",
+  };
+  return (
+    <Card variant="default" className="gap-4">
+      <CardContent className="pt-6">
+        <div className="flex items-start justify-between">
+          <div>
+            <p className="mb-1 text-sm text-muted-foreground">{label}</p>
+            <p className="text-xl font-semibold text-foreground">{value}</p>
+            {sub && <p className="mt-1 text-xs text-muted-foreground">{sub}</p>}
+          </div>
+          <div className={`rounded-xl p-3 ring-1 ${tintCls[tint]}`}>
+            <Icon className="h-5 w-5" />
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
-  useEffect(() => {
-    // Generate historical metrics
-    const generateMetrics = () => {
-      const newMetric = {
-        time: new Date().toLocaleTimeString(),
-        latency: Math.random() * 100 + (schedulerType === 'drl' ? 50 : 100),
-        throughput: Math.random() * 50 + (schedulerType === 'drl' ? 70 : 50),
-        makespan: Math.random() * 200 + (schedulerType === 'drl' ? 150 : 200),
-        waitTime: Math.random() * 80 + (schedulerType === 'drl' ? 30 : 60),
-        cpuUtil: Math.random() * 30 + 60,
-        ramUtil: Math.random() * 25 + 55,
-      };
+function OverviewSkeleton() {
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-4">
+        {[1, 2, 3, 4].map((i) => (
+          <Skeleton key={i} className="h-28 rounded-xl" />
+        ))}
+      </div>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <Skeleton className="h-[320px] rounded-xl" />
+        <Skeleton className="h-[320px] rounded-xl" />
+      </div>
+    </div>
+  );
+}
 
-      setMetrics((prev) => [...prev.slice(-19), newMetric]);
-    };
+export function AdminDashboard() {
+  const { data: simPage, isLoading, error } = useSimulations(undefined, { limit: 2000 });
+  const sims = simPage?.items ?? [];
+  const { mutate: deleteSim } = useDeleteSimulation();
+  const [tab, setTab] = useState("overview");
 
-    if (simulationState === 'running') {
-      const interval = setInterval(generateMetrics, 3000);
-      return () => clearInterval(interval);
-    }
-  }, [simulationState, schedulerType]);
+  const doneSims = useMemo(() => (sims ?? []).filter((s) => s.status === "done"), [sims]);
 
-  useEffect(() => {
-    // Generate heatmap data (node utilization)
-    const generateHeatmap = () => {
-      const data = Array.from({ length: 8 }, (_, i) => ({
-        node: `N${i + 1}`,
-        cpu: Math.random() * 100,
-        ram: Math.random() * 100,
-        jobs: Math.floor(Math.random() * 10),
-      }));
-      setHeatmapData(data);
-    };
-
-    if (simulationState === 'running') {
-      const interval = setInterval(generateHeatmap, 5000);
-      generateHeatmap();
-      return () => clearInterval(interval);
-    }
-  }, [simulationState]);
-
-  useEffect(() => {
-    // Generate comparison data
-    setComparisonData({
-      baseline: {
-        avgLatency: 145.6,
-        avgThroughput: 65.3,
-        avgMakespan: 342.8,
-        avgWaitTime: 89.2,
-        utilization: 68.5,
-      },
-      drl: {
-        avgLatency: 98.4,
-        avgThroughput: 92.7,
-        avgMakespan: 256.1,
-        avgWaitTime: 45.3,
-        utilization: 84.2,
-      },
-      improvement: {
-        latency: 32.4,
-        throughput: 42.0,
-        makespan: 25.3,
-        waitTime: 49.2,
-        utilization: 22.9,
-      },
+  const policyGroups = useMemo(() => {
+    const map: Record<string, number> = {};
+    (sims ?? []).forEach((s) => {
+      map[s.policy] = (map[s.policy] ?? 0) + 1;
     });
-  }, []);
+    return Object.entries(map).map(([policy, count]) => ({ policy, count }));
+  }, [sims]);
 
-  const radarData = comparisonData
-    ? [
-        {
-          metric: 'Throughput',
-          Baseline: comparisonData.baseline.avgThroughput,
-          DRL: comparisonData.drl.avgThroughput,
-        },
-        {
-          metric: 'Utilization',
-          Baseline: comparisonData.baseline.utilization,
-          DRL: comparisonData.drl.utilization,
-        },
-        {
-          metric: 'Latency (inv)',
-          Baseline: 200 - comparisonData.baseline.avgLatency,
-          DRL: 200 - comparisonData.drl.avgLatency,
-        },
-        {
-          metric: 'Wait Time (inv)',
-          Baseline: 100 - comparisonData.baseline.avgWaitTime,
-          DRL: 100 - comparisonData.drl.avgWaitTime,
-        },
-        {
-          metric: 'Makespan (inv)',
-          Baseline: 400 - comparisonData.baseline.avgMakespan,
-          DRL: 400 - comparisonData.drl.avgMakespan,
-        },
-      ]
-    : [];
+  const statusGroups = useMemo(() => {
+    const map: Record<string, number> = {};
+    (sims ?? []).forEach((s) => {
+      map[s.status] = (map[s.status] ?? 0) + 1;
+    });
+    return Object.entries(map).map(([status, count]) => ({ status, count }));
+  }, [sims]);
 
-  const statCards = [
-    {
-      label: 'Active Jobs',
-      value: jobs.length,
-      icon: Activity,
-      color: 'blue',
-      change: '+12%',
-      trend: 'up',
-    },
-    {
-      label: 'Avg Latency',
-      value: comparisonData ? `${comparisonData[schedulerType === 'drl' ? 'drl' : 'baseline'].avgLatency.toFixed(1)}ms` : '0ms',
-      icon: Clock,
-      color: 'green',
-      change: schedulerType === 'drl' ? '-32%' : '+5%',
-      trend: schedulerType === 'drl' ? 'down' : 'up',
-    },
-    {
-      label: 'Throughput',
-      value: comparisonData ? `${comparisonData[schedulerType === 'drl' ? 'drl' : 'baseline'].avgThroughput.toFixed(1)} jobs/s` : '0',
-      icon: Zap,
-      color: 'purple',
-      change: schedulerType === 'drl' ? '+42%' : '+8%',
-      trend: 'up',
-    },
-    {
-      label: 'Cluster Utilization',
-      value: comparisonData ? `${comparisonData[schedulerType === 'drl' ? 'drl' : 'baseline'].utilization.toFixed(1)}%` : '0%',
-      icon: Server,
-      color: 'yellow',
-      change: schedulerType === 'drl' ? '+23%' : '+3%',
-      trend: 'up',
-    },
-  ];
+  const totalSims = sims?.length ?? 0;
+  const running = (sims ?? []).filter((s) => s.status === "running").length;
+  const failed = (sims ?? []).filter((s) => s.status === "failed").length;
+
+  const columns = useMemo<ColumnDef<SimulationSummary>[]>(
+    () => [
+      {
+        accessorKey: "id",
+        header: ({ column }) => <DataTableColumnHeader column={column} title="ID" />,
+        cell: ({ row }) => (
+          <span className="font-mono text-xs text-muted-foreground">{row.original.id.slice(0, 10)}…</span>
+        ),
+        sortingFn: (a, b) => a.original.id.localeCompare(b.original.id),
+      },
+      {
+        accessorKey: "policy",
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Policy" />,
+        cell: ({ row }) => <SimulationPolicyBadge policy={row.original.policy} />,
+        filterFn: (row, columnId, filterValue) =>
+          filterValue == null || filterValue === "" || filterValue === "all" || row.getValue(columnId) === filterValue,
+      },
+      {
+        id: "jobs",
+        header: "Jobs",
+        enableSorting: false,
+        cell: ({ row }) => <SimulationJobsCell simId={row.original.id} />,
+      },
+      {
+        id: "wait",
+        header: "Avg wait",
+        enableSorting: false,
+        cell: ({ row }) => <SimulationWaitCell simId={row.original.id} />,
+      },
+      {
+        id: "turnaround",
+        header: "Avg turnaround",
+        enableSorting: false,
+        cell: ({ row }) => <SimulationTurnaroundCell simId={row.original.id} />,
+      },
+      {
+        id: "energy",
+        header: "Energy",
+        enableSorting: false,
+        cell: ({ row }) => <SimulationEnergyCell simId={row.original.id} />,
+      },
+      {
+        accessorKey: "status",
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
+        cell: ({ row }) => <SimulationStatusBadge status={row.original.status} />,
+        filterFn: (row, columnId, filterValue) =>
+          filterValue == null || filterValue === "" || filterValue === "all" || row.getValue(columnId) === filterValue,
+      },
+      {
+        id: "actions",
+        header: () => <span className="sr-only">Actions</span>,
+        enableSorting: false,
+        cell: ({ row }) => (
+          <SimulationDeleteButton simId={row.original.id} onDelete={(id) => deleteSim(id)} />
+        ),
+      },
+    ],
+    [deleteSim],
+  );
 
   return (
     <div className="space-y-6">
-      {/* Real-Time Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {statCards.map((stat) => {
-          const Icon = stat.icon;
-          const colorClasses = {
-            blue: 'bg-blue-50 text-blue-600',
-            green: 'bg-green-50 text-green-600',
-            purple: 'bg-purple-50 text-purple-600',
-            yellow: 'bg-yellow-50 text-yellow-600',
-          };
+      {error && (
+        <div className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-destructive">
+          <AlertCircle className="h-5 w-5 shrink-0" />
+          Could not reach backend. Make sure the API is running.
+        </div>
+      )}
 
-          return (
-            <div key={stat.label} className="bg-white rounded-lg border border-slate-200 p-6">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-slate-600 mb-2">{stat.label}</p>
-                  <p className="text-slate-900 mb-2">{stat.value}</p>
-                  <div className="flex items-center gap-1">
-                    {stat.trend === 'up' ? (
-                      <TrendingUp className={`w-4 h-4 ${stat.trend === 'up' && stat.change.startsWith('+') ? 'text-green-600' : 'text-red-600'}`} />
-                    ) : (
-                      <TrendingDown className="w-4 h-4 text-green-600" />
-                    )}
-                    <span className={`${stat.trend === 'up' && stat.change.startsWith('+') ? 'text-green-600' : 'text-red-600'}`}>
-                      {stat.change}
-                    </span>
-                  </div>
-                </div>
-                <div className={`p-3 rounded-lg ${colorClasses[stat.color as keyof typeof colorClasses]}`}>
-                  <Icon className="w-6 h-6" />
-                </div>
-              </div>
+      {isLoading && <OverviewSkeleton />}
+
+      {!isLoading && !error && (
+        <Tabs value={tab} onValueChange={setTab} className="gap-6">
+          <TabsList className="grid w-full max-w-md grid-cols-2 sm:w-fit">
+            <TabsTrigger value="overview" className="gap-2">
+              <LayoutGrid className="size-4" />
+              Overview
+            </TabsTrigger>
+            <TabsTrigger value="table" className="gap-2">
+              <Table2 className="size-4" />
+              All simulations
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="overview" className="mt-0 space-y-6">
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-4">
+              <MetricCard label="Total Simulations" value={String(totalSims)} icon={Activity} tint="primary" />
+              <MetricCard label="Completed" value={String(doneSims.length)} icon={Clock} tint="emerald" />
+              <MetricCard label="Running" value={String(running)} icon={Zap} tint="violet" sub="Celery tasks active" />
+              <MetricCard label="Failed" value={String(failed)} icon={AlertCircle} tint="amber" />
             </div>
-          );
-        })}
-      </div>
 
-      {/* Historical Metrics Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-lg border border-slate-200 p-6">
-          <h3 className="text-slate-900 mb-4">Job Latency & Throughput (Real-Time)</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={metrics}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="time" />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              <Line type="monotone" dataKey="latency" stroke="#3b82f6" strokeWidth={2} name="Latency (ms)" dot={false} />
-              <Line type="monotone" dataKey="throughput" stroke="#10b981" strokeWidth={2} name="Throughput (jobs/s)" dot={false} />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-
-        <div className="bg-white rounded-lg border border-slate-200 p-6">
-          <h3 className="text-slate-900 mb-4">Makespan & Wait Time (Real-Time)</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={metrics}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="time" />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              <Line type="monotone" dataKey="makespan" stroke="#f59e0b" strokeWidth={2} name="Makespan (s)" dot={false} />
-              <Line type="monotone" dataKey="waitTime" stroke="#ef4444" strokeWidth={2} name="Wait Time (s)" dot={false} />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      {/* Cluster Heatmap */}
-      <div className="bg-white rounded-lg border border-slate-200 p-6">
-        <h3 className="text-slate-900 mb-4">Cluster Resource Heatmap</h3>
-        <div className="grid grid-cols-8 gap-4">
-          {heatmapData.map((node) => {
-            const intensity = (node.cpu + node.ram) / 2;
-            const bgColor =
-              intensity > 80
-                ? 'bg-red-500'
-                : intensity > 60
-                ? 'bg-orange-500'
-                : intensity > 40
-                ? 'bg-yellow-500'
-                : intensity > 20
-                ? 'bg-blue-500'
-                : 'bg-green-500';
-
-            return (
-              <div key={node.node} className="text-center">
-                <div className={`${bgColor} text-white rounded-lg p-6 mb-2 transition-all`}>
-                  <div className="mb-2">{node.node}</div>
-                  <div className="text-xs opacity-90">{intensity.toFixed(0)}%</div>
-                </div>
-                <div className="text-xs text-slate-600">
-                  CPU: {node.cpu.toFixed(0)}%<br />
-                  RAM: {node.ram.toFixed(0)}%<br />
-                  Jobs: {node.jobs}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Comparative Analytics */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-lg border border-slate-200 p-6">
-          <h3 className="text-slate-900 mb-4">Scheduler Performance Comparison</h3>
-          <ResponsiveContainer width="100%" height={350}>
-            <RadarChart data={radarData}>
-              <PolarGrid />
-              <PolarAngleAxis dataKey="metric" />
-              <PolarRadiusAxis />
-              <Radar name="Baseline" dataKey="Baseline" stroke="#94a3b8" fill="#94a3b8" fillOpacity={0.5} />
-              <Radar name="DRL Scheduler" dataKey="DRL" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.6} />
-              <Legend />
-            </RadarChart>
-          </ResponsiveContainer>
-        </div>
-
-        <div className="bg-white rounded-lg border border-slate-200 p-6">
-          <h3 className="text-slate-900 mb-4">Performance Improvements (DRL vs Baseline)</h3>
-          {comparisonData && (
-            <div className="space-y-4">
-              {Object.entries(comparisonData.improvement).map(([key, value]: [string, any]) => (
-                <div key={key}>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-slate-700 capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}</span>
-                    <span className="text-green-600">+{value.toFixed(1)}%</span>
-                  </div>
-                  <div className="w-full bg-slate-200 rounded-full h-2">
-                    <div
-                      className="bg-green-600 h-2 rounded-full transition-all"
-                      style={{ width: `${Math.min(value, 100)}%` }}
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Simulations by Policy</CardTitle>
+                </CardHeader>
+                <CardContent className="pt-0">
+                  {policyGroups.length === 0 ? (
+                    <EmptyState
+                      icon={Server}
+                      title="No policy data yet"
+                      description="Run simulations from the Simulation tab to populate this chart."
+                      className="border-none bg-transparent py-8"
                     />
-                  </div>
-                </div>
-              ))}
+                  ) : (
+                    <ResponsiveContainer width="100%" height={260}>
+                      <BarChart data={policyGroups}>
+                        <CartesianGrid {...chartGridProps} />
+                        <XAxis dataKey="policy" tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} />
+                        <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} />
+                        <Tooltip {...chartTooltipProps} />
+                        <Bar dataKey="count" fill={chartCss.c1} name="Simulations" radius={[6, 6, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Status Breakdown</CardTitle>
+                </CardHeader>
+                <CardContent className="pt-0">
+                  {statusGroups.length === 0 ? (
+                    <EmptyState
+                      icon={Activity}
+                      title="No status data yet"
+                      description="Simulation statuses will appear here once you have runs in flight or completed."
+                      className="border-none bg-transparent py-8"
+                    />
+                  ) : (
+                    <ResponsiveContainer width="100%" height={260}>
+                      <BarChart data={statusGroups}>
+                        <CartesianGrid {...chartGridProps} />
+                        <XAxis dataKey="status" tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} />
+                        <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} />
+                        <Tooltip {...chartTooltipProps} />
+                        <Bar dataKey="count" fill={chartCss.c2} name="Count" radius={[6, 6, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  )}
+                </CardContent>
+              </Card>
             </div>
-          )}
-        </div>
-      </div>
+          </TabsContent>
 
-      {/* Statistical Summary */}
-      <div className="bg-white rounded-lg border border-slate-200 p-6">
-        <h3 className="text-slate-900 mb-4">Statistical Summary</h3>
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-6">
-          <div className="text-center">
-            <div className="text-slate-600 mb-2">Total Jobs Processed</div>
-            <div className="text-slate-900">{jobs.length * 15}</div>
-          </div>
-          <div className="text-center">
-            <div className="text-slate-600 mb-2">Success Rate</div>
-            <div className="text-green-600">98.7%</div>
-          </div>
-          <div className="text-center">
-            <div className="text-slate-600 mb-2">Avg Response Time</div>
-            <div className="text-slate-900">124.3ms</div>
-          </div>
-          <div className="text-center">
-            <div className="text-slate-600 mb-2">Peak Throughput</div>
-            <div className="text-slate-900">156 jobs/s</div>
-          </div>
-          <div className="text-center">
-            <div className="text-slate-600 mb-2">Uptime</div>
-            <div className="text-green-600">99.9%</div>
-          </div>
-        </div>
-      </div>
-
-      {/* Resource Utilization Trends */}
-      <div className="bg-white rounded-lg border border-slate-200 p-6">
-        <h3 className="text-slate-900 mb-4">Resource Utilization Trends</h3>
-        <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={metrics}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="time" />
-            <YAxis />
-            <Tooltip />
-            <Legend />
-            <Bar dataKey="cpuUtil" fill="#3b82f6" name="CPU Utilization %" />
-            <Bar dataKey="ramUtil" fill="#10b981" name="RAM Utilization %" />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
+          <TabsContent value="table" className="mt-0">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">All Simulations</CardTitle>
+              </CardHeader>
+              <CardContent className="pt-0">
+                {(sims ?? []).length === 0 ? (
+                  <EmptyState
+                    icon={Server}
+                    title="No simulations yet"
+                    description="Launch a run from the Cluster Simulation tab. Completed and in-progress jobs will show up in this sortable table."
+                  />
+                ) : (
+                  <DataTable
+                    columns={columns}
+                    data={sims ?? []}
+                    emptyMessage="No simulations."
+                    globalFilterPlaceholder="Search ID, policy, status…"
+                    filterBar={(t) => <SimulationTableFilters table={t} />}
+                  />
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      )}
     </div>
   );
 }
