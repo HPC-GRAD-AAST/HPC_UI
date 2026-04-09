@@ -10,6 +10,7 @@ import {
   Legend,
 } from "recharts";
 import { FlaskConical, Play, AlertCircle } from "lucide-react";
+import { traceJobCount } from "../lib/api";
 import { useClusters, useTraces, useBenchmarkRun } from "../lib/hooks";
 import { chartCss, chartGridProps, chartTooltipProps } from "../lib/chart-theme";
 import { Button } from "./ui/button";
@@ -105,7 +106,7 @@ export function BenchmarkLab() {
                 <option value="">Select…</option>
                 {readyTraces.map((t) => (
                   <option key={t.id} value={t.id}>
-                    {t.name} ({t.job_count} jobs)
+                    {t.name} ({traceJobCount(t).toLocaleString()} jobs)
                   </option>
                 ))}
               </select>

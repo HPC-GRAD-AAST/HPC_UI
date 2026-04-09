@@ -275,7 +275,9 @@ export function useDeleteTrace() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => tracesApi.delete(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["traces"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["traces"] });
+    },
   });
 }
 

@@ -11,6 +11,11 @@ api.interceptors.request.use((config) => {
   if (t) {
     config.headers.Authorization = `Bearer ${t}`;
   }
+  // Default instance sets Content-Type: application/json; that breaks multipart uploads.
+  // Let the runtime set multipart/form-data with boundary for FormData bodies.
+  if (config.data instanceof FormData) {
+    delete config.headers["Content-Type"];
+  }
   return config;
 });
 
@@ -388,22 +393,60 @@ export interface SimulationSnapshotsResponse {
   snapshots: Snapshot[] | null;
 }
 
+/** FastAPI BaseSchema uses camelCase JSON aliases (jobCount, createdAt, …). */
 export interface WorkloadTraceSummary {
   id: string;
   name: string;
   source: string;
   format: string;
-  job_count: number;
-  created_at: string;
+  job_count?: number;
+  jobCount?: number;
+  status: TraceStatus;
+  created_at?: string;
+  createdAt?: string;
 }
 
 export interface WorkloadTraceShort {
   id: string;
   name: string;
   status: TraceStatus;
-  job_count: number;
-  created_at: string;
-  updated_at: string;
+  job_count?: number;
+  jobCount?: number;
+  created_at?: string;
+  createdAt?: string;
+  updated_at?: string;
+  updatedAt?: string;
+}
+
+export function traceJobCount(t: { job_count?: number; jobCount?: number }): number {
+  const n = t.job_count ?? t.jobCount;
+  return typeof n === "number" && Number.isFinite(n) ? n : 0;
+}
+
+/** Display helper — avoids treating 0 jobs as “missing”. */
+export function formatTraceJobCount(t: { job_count?: number; jobCount?: number }): string {
+  const n = t.job_count ?? t.jobCount;
+  if (n == null || !Number.isFinite(n)) return "—";
+  return n.toLocaleString();
+}
+
+/** ISO date from API (Pydantic emits camelCase: createdAt, updatedAt). */
+export function apiIsoDate(
+  obj: { created_at?: string; createdAt?: string; updated_at?: string; updatedAt?: string },
+  field: "created" | "updated" = "created",
+): string {
+  if (field === "created") return obj.created_at ?? obj.createdAt ?? "";
+  return obj.updated_at ?? obj.updatedAt ?? "";
+}
+
+export function formatApiDateTime(iso: string | undefined | null): string {
+  if (iso == null || iso === "") return "—";
+  const t = new Date(iso);
+  return Number.isNaN(t.getTime()) ? "—" : t.toLocaleString();
+}
+
+export function traceCreatedAtIso(t: { created_at?: string; createdAt?: string }): string {
+  return apiIsoDate(t, "created");
 }
 
 export interface ExperimentConfigCreate {
@@ -419,7 +462,8 @@ export interface ExperimentConfigSummary {
   id: string;
   name: string;
   policy: SchedulerPolicy;
-  created_at: string;
+  created_at?: string;
+  createdAt?: string;
 }
 
 export interface ExperimentConfigResponse {
@@ -430,27 +474,51 @@ export interface ExperimentConfigResponse {
   policy: SchedulerPolicy;
   seed: number;
   description: string | null;
-  created_at: string;
-  updated_at: string;
+  created_at?: string;
+  createdAt?: string;
+  updated_at?: string;
+  updatedAt?: string;
 }
 
 export interface ExperimentRunSummary {
   id: string;
   config_id: string;
+  configId?: string;
   status: SimulationStatus;
-  created_at: string;
+  created_at?: string;
+  createdAt?: string;
 }
 
 export interface ExperimentRunResponse {
   id: string;
   config_id: string;
+  configId?: string;
   status: SimulationStatus;
-  summary: SimulationResult | null;
-  job_results: unknown[] | null;
-  node_results: unknown[] | null;
+  /** Flat metrics from simulator (snake_case in DB; may appear camelCase from serializers). */
+  summary: SimulationResult | Record<string, unknown> | null;
+  job_results?: unknown[] | null;
+  /** Alias when API serializes with camelCase (same data as `job_results`). */
+  jobResults?: unknown[] | null;
+  node_results?: unknown[] | null;
+  /** Alias when API serializes with camelCase (same data as `node_results`). */
+  nodeResults?: unknown[] | null;
   snapshots?: Snapshot[] | null;
-  created_at: string;
-  updated_at: string;
+  created_at?: string;
+  createdAt?: string;
+  updated_at?: string;
+  updatedAt?: string;
+}
+
+/** Normalize job list whether the API used snake_case or camelCase. */
+export function experimentRunJobs(run: ExperimentRunResponse): Record<string, unknown>[] {
+  const raw = run.job_results ?? run.jobResults;
+  return Array.isArray(raw) ? (raw as Record<string, unknown>[]) : [];
+}
+
+/** Normalize node list whether the API used snake_case or camelCase. */
+export function experimentRunNodes(run: ExperimentRunResponse): Record<string, unknown>[] {
+  const raw = run.node_results ?? run.nodeResults;
+  return Array.isArray(raw) ? (raw as Record<string, unknown>[]) : [];
 }
 
 export const analyticsApi = {
@@ -533,7 +601,7 @@ export const simulationsApi = {
 };
 
 export const tracesApi = {
-  list: () => api.get<WorkloadTraceShort[]>("/workload-traces/").then((r) => r.data),
+  list: () => api.get<WorkloadTraceSummary[]>("/workload-traces/").then((r) => r.data),
   get: (id: string) => api.get<WorkloadTraceSummary>(`/workload-traces/${id}`).then((r) => r.data),
   status: (id: string) => api.get<WorkloadTraceShort>(`/workload-traces/${id}/status`).then((r) => r.data),
   jobs: (id: string, limit = 50, offset = 0) =>
@@ -542,12 +610,11 @@ export const tracesApi = {
       .then((r) => r.data),
   upload: (file: File, name: string, maxJobs?: number) => {
     const form = new FormData();
-    form.append("file", file);
+    // Field names must match FastAPI: file=File(...), name=Form(...), max_jobs=Form(None)
+    form.append("file", file, file.name);
     form.append("name", name);
-    if (maxJobs) form.append("max_jobs", String(maxJobs));
-    return api.post<WorkloadTraceShort>("/workload-traces/", form, {
-      headers: { "Content-Type": "multipart/form-data" },
-    }).then((r) => r.data);
+    if (maxJobs != null && maxJobs > 0) form.append("max_jobs", String(maxJobs));
+    return api.post<WorkloadTraceShort>("/workload-traces/", form).then((r) => r.data);
   },
   delete: (id: string) => api.delete(`/workload-traces/${id}`),
 };
