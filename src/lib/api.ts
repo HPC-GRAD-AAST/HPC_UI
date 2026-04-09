@@ -64,19 +64,65 @@ export interface ClusterCreate {
   nodes: NodeCreate[];
 }
 
-export interface NodeResponse extends NodeCreate {
+/** Persisted node — API may return snake_case or camelCase (Pydantic aliases). */
+export interface NodeResponse {
   id: string;
-  cluster_id: string;
-  created_at: string;
-  updated_at: string;
+  total_cpus?: number;
+  totalCpus?: number;
+  total_mem?: number;
+  totalMem?: number;
+  idle_watts?: number;
+  idleWatts?: number;
+  max_watts?: number;
+  maxWatts?: number;
+  zone?: string;
+  node_type?: string;
+  nodeType?: string;
+  labels?: Record<string, string>;
+  cluster_id?: string;
+  clusterId?: string;
+  created_at?: string;
+  createdAt?: string;
+  updated_at?: string;
+  updatedAt?: string;
+}
+
+export function nodeTotalCpus(n: Pick<NodeResponse, "total_cpus" | "totalCpus">): number {
+  const v = n.total_cpus ?? n.totalCpus;
+  return typeof v === "number" && Number.isFinite(v) ? v : 0;
+}
+
+export function nodeTotalMem(n: Pick<NodeResponse, "total_mem" | "totalMem">): number {
+  const v = n.total_mem ?? n.totalMem;
+  return typeof v === "number" && Number.isFinite(v) ? v : 0;
+}
+
+export function nodeIdleWatts(n: Pick<NodeResponse, "idle_watts" | "idleWatts">): number {
+  const v = n.idle_watts ?? n.idleWatts;
+  return typeof v === "number" && Number.isFinite(v) ? v : 0;
+}
+
+export function nodeMaxWatts(n: Pick<NodeResponse, "max_watts" | "maxWatts">): number {
+  const v = n.max_watts ?? n.maxWatts;
+  return typeof v === "number" && Number.isFinite(v) ? v : 0;
+}
+
+export function nodeZone(n: Pick<NodeResponse, "zone">): string {
+  return n.zone ?? "—";
+}
+
+export function nodeTypeLabel(n: Pick<NodeResponse, "node_type" | "nodeType">): string {
+  return n.node_type ?? n.nodeType ?? "—";
 }
 
 export interface ClusterResponse {
   id: string;
   name: string;
   bandwidth: number;
-  created_at: string;
-  updated_at: string;
+  created_at?: string;
+  createdAt?: string;
+  updated_at?: string;
+  updatedAt?: string;
   nodes: NodeResponse[];
 }
 
@@ -84,8 +130,29 @@ export interface ClusterSummary {
   id: string;
   name: string;
   bandwidth: number;
-  node_count: number;
-  created_at: string;
+  node_count?: number;
+  nodeCount?: number;
+  created_at?: string;
+  createdAt?: string;
+}
+
+export function clusterNodeCount(c: Pick<ClusterSummary, "node_count" | "nodeCount">): number {
+  const v = c.node_count ?? c.nodeCount;
+  return typeof v === "number" && Number.isFinite(v) ? v : 0;
+}
+
+export function clusterCreatedAtIso(c: { created_at?: string; createdAt?: string }): string {
+  return c.created_at ?? c.createdAt ?? "";
+}
+
+export function clusterUpdatedAtIso(c: { updated_at?: string; updatedAt?: string }): string {
+  return c.updated_at ?? c.updatedAt ?? "";
+}
+
+/** Short label for UUIDs in UI (full id available via copy). */
+export function shortenUuid(id: string, visible = 8): string {
+  if (!id) return "—";
+  return id.length <= visible + 1 ? id : `${id.slice(0, visible)}…`;
 }
 
 export interface JobCreate {
