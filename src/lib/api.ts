@@ -186,21 +186,38 @@ export interface JobSummary {
   cpu_req: number;
   mem_req: number;
   duration: number;
+  submission_time?: number;
   priority: string;
   dependencies?: string[];
   group_id?: string | null;
   group_name?: string | null;
+  position?: number | null;
   created_at: string;
 }
 
 export interface JobPatch {
+  name?: string;
+  duration?: number;
+  submission_time?: number;
+  cpu_req?: number;
+  mem_req?: number;
+  data_size_gb?: number;
+  priority?: string;
+  queue_name?: string;
+  max_retries?: number;
+  node_constraints?: Record<string, unknown>;
   group_id?: string | null;
+  position?: number;
 }
 
 export interface JobGroup {
   id: string;
   name: string;
   color?: string | null;
+  job_count?: number;
+  jobCount?: number;
+  total_cpu_req?: number;
+  totalCpuReq?: number;
   created_at: string;
   updated_at: string;
 }
@@ -541,6 +558,7 @@ export interface ExperimentConfigCreate {
   cluster_id: string;
   workload_trace_id: string;
   policy: SchedulerPolicy;
+  model_id?: string;   // required when policy is rl_* (a registered RL model id)
   seed?: number;
   description?: string;
 }
@@ -637,22 +655,74 @@ export const clustersApi = {
   delete: (id: string) => api.delete(`/clusters/${id}`),
 };
 
+export interface JobGroupDetail extends JobGroup {
+  job_count?: number;
+  jobCount?: number;
+  total_cpu_req?: number;
+  totalCpuReq?: number;
+  jobs: JobSummary[];
+}
+
+export interface JobGenerate {
+  count: number;
+  name_prefix?: string;
+  group_id?: string;
+  cpu_req?: number;
+  mem_req?: number;
+  duration?: number;
+  priority?: string;
+  queue_name?: string;
+  data_size_gb?: number;
+  max_retries?: number;
+  start_time?: number;
+  arrival_every?: number;          // staggered arrivals (seconds between jobs)
+  cpu_req_range?: [number, number];
+  duration_range?: [number, number];
+  seed?: number;
+}
+
+export interface JobListParams {
+  name_contains?: string;
+  priority?: string;
+  group_id?: string;
+  ungrouped?: boolean;
+  cpu_min?: number;
+  cpu_max?: number;
+  mem_min?: number;
+  mem_max?: number;
+  duration_min?: number;
+  duration_max?: number;
+  sort_by?: string;
+  sort_dir?: "asc" | "desc";
+  skip?: number;
+  limit?: number;
+}
+
 export const jobGroupsApi = {
   list: () => api.get<JobGroup[]>("/job-groups/").then((r) => r.data),
+  get: (id: string) => api.get<JobGroupDetail>(`/job-groups/${id}`).then((r) => r.data),
   create: (body: { name: string; color?: string | null }) =>
     api.post<JobGroup>("/job-groups/", body).then((r) => r.data),
+  update: (id: string, body: { name?: string; color?: string | null }) =>
+    api.patch<JobGroup>(`/job-groups/${id}`, body).then((r) => r.data),
+  assignJobs: (id: string, jobIds: string[]) =>
+    api.post<JobGroupDetail>(`/job-groups/${id}/jobs`, { job_ids: jobIds }).then((r) => r.data),
+  removeJobs: (id: string, jobIds: string[]) =>
+    api.delete<JobGroupDetail>(`/job-groups/${id}/jobs`, { data: { job_ids: jobIds } }).then((r) => r.data),
+  reorder: (id: string, orderedJobIds: string[]) =>
+    api.patch<JobGroupDetail>(`/job-groups/${id}/reorder`, { ordered_job_ids: orderedJobIds }).then((r) => r.data),
+  delete: (id: string) => api.delete(`/job-groups/${id}`),
 };
 
 export const jobsApi = {
-  list: (params?: {
-    name_contains?: string;
-    priority?: string;
-    group_id?: string;
-    skip?: number;
-    limit?: number;
-  }) => api.get<PaginatedJobs>("/jobs/", { params }).then((r) => r.data),
+  list: (params?: JobListParams) =>
+    api.get<PaginatedJobs>("/jobs/", { params }).then((r) => r.data),
   get: (id: string) => api.get<JobResponse>(`/jobs/${id}`).then((r) => r.data),
   create: (body: JobCreate) => api.post<JobResponse>("/jobs/", body).then((r) => r.data),
+  generate: (body: JobGenerate) =>
+    api.post<{ created: number; jobs: JobResponse[] }>("/jobs/generate", body).then((r) => r.data),
+  bulkPatch: (jobIds: string[], patch: JobPatch) =>
+    api.patch<{ updated: number }>("/jobs/bulk", { job_ids: jobIds, patch }).then((r) => r.data),
   patch: (id: string, body: JobPatch) => api.patch<JobResponse>(`/jobs/${id}`, body).then((r) => r.data),
   fromWorkflow: (body: WorkflowMaterializeRequest) =>
     api.post<WorkflowMaterializeResponse>("/jobs/from-workflow", body).then((r) => r.data),

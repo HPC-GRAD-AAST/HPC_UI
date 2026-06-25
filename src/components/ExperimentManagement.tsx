@@ -26,9 +26,11 @@ import {
   useExperimentRun,
   useClusters,
   useTraces,
+  useRLModels,
 } from "../lib/hooks";
 import {
   SchedulerPolicy,
+  isRLPolicy,
   traceJobCount,
   apiIsoDate,
   formatApiDateTime,
@@ -58,6 +60,8 @@ const POLICIES: SchedulerPolicy[] = [
   "worstfit",
   "loadbalancing",
   "easybackfill",
+  "rl_v2",
+  "rl_backfill",
 ];
 
 function StatusBadge({ status }: { status: string }) {
@@ -710,21 +714,30 @@ export function ExperimentManagement() {
     cluster_id: "",
     workload_trace_id: "",
     policy: "fcfs" as SchedulerPolicy,
+    model_id: "",
     seed: 42,
     description: "",
   });
+
+  const { data: rlModels } = useRLModels();
+  const needsModel = isRLPolicy(form.policy);
 
   const traceList = traces ?? [];
   const readyTraces = traceList.filter((t) => t.status === "ready");
 
   const handleCreate = () => {
     if (!form.name || !form.cluster_id || !form.workload_trace_id) return;
+    if (needsModel && !form.model_id) return;
     createConfig(
-      { ...form, description: form.description || undefined },
+      {
+        ...form,
+        model_id: needsModel ? form.model_id : undefined,
+        description: form.description || undefined,
+      },
       {
         onSuccess: () => {
           setShowForm(false);
-          setForm({ name: "", cluster_id: "", workload_trace_id: "", policy: "fcfs", seed: 42, description: "" });
+          setForm({ name: "", cluster_id: "", workload_trace_id: "", policy: "fcfs", model_id: "", seed: 42, description: "" });
         },
       },
     );
@@ -822,6 +835,29 @@ export function ExperimentManagement() {
                   </select>
                 </div>
 
+                {needsModel && (
+                  <div>
+                    <label className="native-label">RL model</label>
+                    <select
+                      value={form.model_id}
+                      onChange={(e) => setForm({ ...form, model_id: e.target.value })}
+                      className="native-field"
+                    >
+                      <option value="">Select a registered model…</option>
+                      {(rlModels ?? []).map((m) => (
+                        <option key={m.id} value={m.id}>
+                          {m.name} ({m.mode}/{m.variant})
+                        </option>
+                      ))}
+                    </select>
+                    {(rlModels ?? []).length === 0 && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        No RL models registered. POST /api/v1/rl-models/scan with the models directory.
+                      </p>
+                    )}
+                  </div>
+                )}
+
                 <div>
                   <label className="native-label">Random seed</label>
                   <input
@@ -847,7 +883,13 @@ export function ExperimentManagement() {
                 <Button
                   type="button"
                   onClick={handleCreate}
-                  disabled={creating || !form.name || !form.cluster_id || !form.workload_trace_id}
+                  disabled={
+                    creating ||
+                    !form.name ||
+                    !form.cluster_id ||
+                    !form.workload_trace_id ||
+                    (needsModel && !form.model_id)
+                  }
                 >
                   {creating ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
                   Create
