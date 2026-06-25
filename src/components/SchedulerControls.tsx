@@ -34,8 +34,20 @@ const POLICIES: { value: SchedulerPolicy; label: string; desc: string; icon: typ
   { value: "easybackfill", label: "EASY Backfill", desc: "Backfills small jobs without delaying the head-of-queue job", icon: Brain },
   {
     value: "rl",
-    label: "RL (PPO)",
-    desc: "Learned policy from Stable-Baselines3 — set HPC_RL_MODEL_PATH on the API worker",
+    label: "RL (PPO, legacy)",
+    desc: "Legacy v1 RLScheduler — set HPC_RL_MODEL_PATH on the API worker",
+    icon: Brain,
+  },
+  {
+    value: "rl_v2",
+    label: "RL (Kernel)",
+    desc: "Learned scheduler (hpc_rl) — set HPC_RL_ARTIFACT_DIR to a trained artifact",
+    icon: Brain,
+  },
+  {
+    value: "rl_backfill",
+    label: "RL (Backfill)",
+    desc: "Learned backfilling policy (hpc_rl) — beats EASY; set HPC_RL_ARTIFACT_DIR",
     icon: Brain,
   },
 ];

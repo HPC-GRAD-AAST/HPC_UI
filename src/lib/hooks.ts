@@ -5,6 +5,7 @@ import {
   jobsApi,
   jobGroupsApi,
   simulationsApi,
+  rlModelsApi,
   tracesApi,
   experimentsApi,
   workflowsApi,
@@ -19,6 +20,10 @@ import {
 
 export function useClusters() {
   return useQuery({ queryKey: ["clusters"], queryFn: clustersApi.list });
+}
+
+export function useRLModels() {
+  return useQuery({ queryKey: ["rl-models"], queryFn: rlModelsApi.list });
 }
 
 export function useCluster(id: string | null) {

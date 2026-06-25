@@ -16,8 +16,9 @@ import {
   useCreateSimulation,
   useSimulation,
   useSimulationSnapshots,
+  useRLModels,
 } from "../lib/hooks";
-import type { SchedulerPolicy } from "../lib/api";
+import { isRLPolicy, type SchedulerPolicy } from "../lib/api";
 import { chartCss, chartGridProps, chartTooltipProps } from "../lib/chart-theme";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
@@ -180,6 +181,8 @@ export function ClusterSimulation() {
 
   const [selectedClusterId, setSelectedClusterId] = useState<string>("");
   const [selectedPolicy, setSelectedPolicy] = useState<SchedulerPolicy>("fcfs");
+  const [selectedModelId, setSelectedModelId] = useState<string>("");
+  const { data: rlModels } = useRLModels();
   const [selectedJobIds, setSelectedJobIds] = useState<string[]>([]);
   const [seed, setSeed] = useState(42);
   const [activeSimId, setActiveSimId] = useState<string | null>(null);
@@ -190,10 +193,19 @@ export function ClusterSimulation() {
   const toggleJob = (id: string) =>
     setSelectedJobIds((prev) => (prev.includes(id) ? prev.filter((j) => j !== id) : [...prev, id]));
 
+  const needsModel = isRLPolicy(selectedPolicy);
+
   const handleLaunch = () => {
     if (!selectedClusterId || selectedJobIds.length === 0) return;
+    if (needsModel && !selectedModelId) return;   // RL policy requires a registered model
     createSim(
-      { cluster_id: selectedClusterId, job_ids: selectedJobIds, policy: selectedPolicy, seed },
+      {
+        cluster_id: selectedClusterId,
+        job_ids: selectedJobIds,
+        policy: selectedPolicy,
+        model_id: needsModel ? selectedModelId : undefined,
+        seed,
+      },
       {
         onSuccess: (sim) => {
           setActiveSimId(sim.id);
@@ -233,7 +245,12 @@ export function ClusterSimulation() {
               <Button
                 type="button"
                 onClick={handleLaunch}
-                disabled={launching || !selectedClusterId || selectedJobIds.length === 0}
+                disabled={
+                  launching ||
+                  !selectedClusterId ||
+                  selectedJobIds.length === 0 ||
+                  (needsModel && !selectedModelId)
+                }
                 className="shadow-[0_0_24px_-8px_var(--neon-glow)]"
               >
                 {launching ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
@@ -277,6 +294,29 @@ export function ClusterSimulation() {
                   ))}
                 </select>
               </div>
+
+              {needsModel && (
+                <div>
+                  <label className="native-label">RL model</label>
+                  <select
+                    value={selectedModelId}
+                    onChange={(e) => setSelectedModelId(e.target.value)}
+                    className="native-field"
+                  >
+                    <option value="">Select a registered model…</option>
+                    {(rlModels ?? []).map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.name} ({m.mode}/{m.variant})
+                      </option>
+                    ))}
+                  </select>
+                  {(rlModels ?? []).length === 0 && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      No RL models registered. POST /api/v1/rl-models/scan with the models directory.
+                    </p>
+                  )}
+                </div>
+              )}
 
               <div>
                 <label className="native-label">Random seed</label>

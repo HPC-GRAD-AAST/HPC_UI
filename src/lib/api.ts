@@ -43,7 +43,9 @@ export type SchedulerPolicy =
   | "worstfit"
   | "loadbalancing"
   | "easybackfill"
-  | "rl";
+  | "rl"
+  | "rl_v2"
+  | "rl_backfill";
 
 export type SimulationStatus = "pending" | "running" | "done" | "failed";
 export type TraceStatus = "processing" | "ready" | "failed";
@@ -397,7 +399,25 @@ export interface SimulationCreate {
   cluster_id: string;
   job_ids: string[];
   policy: SchedulerPolicy;
+  model_id?: string;   // required when policy is rl_* (a registered RL model id)
   seed?: number;
+}
+
+/** A registered hpc_rl model artifact (see rlModelsApi). */
+export interface RLModel {
+  id: string;
+  name: string;
+  path: string;
+  mode: string;        // single | backfill | backfill_worker | worker | manager
+  variant: string;     // mlp | kernel | attention
+  workload?: string | null;
+  metrics?: Record<string, unknown> | null;
+  created_at?: string;
+  createdAt?: string;
+}
+
+export function isRLPolicy(p: SchedulerPolicy): boolean {
+  return p === "rl" || p === "rl_v2" || p === "rl_backfill";
 }
 
 export interface SimulationSummary {
@@ -665,6 +685,16 @@ export const simulationsApi = {
   snapshots: (id: string) =>
     api.get<SimulationSnapshotsResponse>(`/simulations/${id}/snapshots`).then((r) => r.data),
   delete: (id: string) => api.delete(`/simulations/${id}`),
+};
+
+export const rlModelsApi = {
+  list: () => api.get<RLModel[]>("/rl-models/").then((r) => r.data),
+  get: (id: string) => api.get<RLModel>(`/rl-models/${id}`).then((r) => r.data),
+  register: (body: { path: string; name?: string; metrics?: Record<string, unknown> }) =>
+    api.post<RLModel>("/rl-models/", body).then((r) => r.data),
+  scan: (directory: string) =>
+    api.post<RLModel[]>("/rl-models/scan", { directory }).then((r) => r.data),
+  delete: (id: string) => api.delete(`/rl-models/${id}`),
 };
 
 export const tracesApi = {
