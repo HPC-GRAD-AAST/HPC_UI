@@ -1,0 +1,189 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:is(.dark *));
+
+/* Light: soft paper + neon lime CTAs (high contrast: lime fill, near-black label) */
+:root {
+  --radius: 0.75rem;
+  --background: oklch(0.985 0.004 100);
+  --foreground: oklch(0.16 0.02 100);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.16 0.02 100);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.16 0.02 100);
+  --primary: oklch(0.78 0.2 128);
+  --primary-foreground: oklch(0.14 0.03 128);
+  --secondary: oklch(0.94 0.01 100);
+  --secondary-foreground: oklch(0.22 0.02 100);
+  --muted: oklch(0.94 0.008 100);
+  --muted-foreground: oklch(0.45 0.02 100);
+  --accent: oklch(0.92 0.04 128);
+  --accent-foreground: oklch(0.18 0.03 100);
+  --destructive: oklch(0.55 0.22 25);
+  --border: oklch(0.88 0.01 100);
+  --input: oklch(0.88 0.01 100);
+  --ring: oklch(0.72 0.19 128);
+  --sidebar: oklch(0.98 0.006 100);
+  --sidebar-foreground: oklch(0.2 0.02 100);
+  --sidebar-primary: oklch(0.78 0.2 128);
+  --sidebar-primary-foreground: oklch(0.14 0.03 128);
+  --sidebar-accent: oklch(0.93 0.03 128);
+  --sidebar-accent-foreground: oklch(0.2 0.02 100);
+  --sidebar-border: oklch(0.9 0.01 100);
+  --sidebar-ring: oklch(0.72 0.19 128);
+  --chart-1: oklch(0.78 0.2 128);
+  --chart-2: oklch(0.72 0.14 180);
+  --chart-3: oklch(0.65 0.16 250);
+  --chart-4: oklch(0.75 0.14 85);
+  --chart-5: oklch(0.6 0.2 25);
+  --neon-glow: oklch(0.72 0.2 128 / 0.35);
+  --neon-glow-soft: oklch(0.55 0.12 200 / 0.16);
+  --neon-shadow: oklch(0.65 0.18 128 / 0.12);
+}
+
+/* Dark: matte charcoal (neutral) + lime accent — no blue-tinted cards */
+.dark {
+  --background: oklch(0.11 0.006 100);
+  --foreground: oklch(0.96 0.01 100);
+  --card: oklch(0.145 0.006 100);
+  --card-foreground: oklch(0.96 0.01 100);
+  --popover: oklch(0.15 0.006 100);
+  --popover-foreground: oklch(0.96 0.01 100);
+  --primary: oklch(0.88 0.22 128);
+  --primary-foreground: oklch(0.12 0.03 128);
+  --secondary: oklch(0.2 0.008 100);
+  --secondary-foreground: oklch(0.96 0.01 100);
+  --muted: oklch(0.18 0.008 100);
+  --muted-foreground: oklch(0.62 0.02 100);
+  --accent: oklch(0.2 0.03 128);
+  --accent-foreground: oklch(0.96 0.02 100);
+  --destructive: oklch(0.58 0.2 25);
+  --border: oklch(0.24 0.01 100);
+  --input: oklch(0.22 0.01 100);
+  --ring: oklch(0.82 0.2 128);
+  --sidebar: oklch(0.1 0.006 100);
+  --sidebar-foreground: oklch(0.93 0.01 100);
+  --sidebar-primary: oklch(0.88 0.22 128);
+  --sidebar-primary-foreground: oklch(0.1 0.03 128);
+  --sidebar-accent: oklch(0.18 0.03 128);
+  --sidebar-accent-foreground: oklch(0.96 0.02 100);
+  --sidebar-border: oklch(0.22 0.01 100);
+  --sidebar-ring: oklch(0.82 0.2 128);
+  --chart-1: oklch(0.88 0.22 128);
+  --chart-2: oklch(0.72 0.14 180);
+  --chart-3: oklch(0.68 0.12 250);
+  --chart-4: oklch(0.78 0.14 85);
+  --chart-5: oklch(0.62 0.18 25);
+  --neon-glow: oklch(0.85 0.22 128 / 0.42);
+  --neon-glow-soft: oklch(0.5 0.1 200 / 0.2);
+  --neon-shadow: oklch(0.75 0.18 128 / 0.14);
+}
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
+
+  /* Obvious affordance for native / Radix controls not using <Button /> */
+  button:not(:disabled):not([data-disabled]):not([aria-disabled="true"]),
+  [role="button"]:not([aria-disabled="true"]):not([data-disabled]),
+  select:not(:disabled),
+  summary {
+    cursor: pointer;
+  }
+  button:disabled,
+  [aria-disabled="true"],
+  [data-disabled] {
+    cursor: not-allowed;
+  }
+}
+
+/* Shared with login + dashboard: green neon atmosphere */
+@layer components {
+  .dashboard-atmosphere {
+    background:
+      radial-gradient(ellipse 85% 55% at 50% -22%, var(--neon-glow), transparent),
+      radial-gradient(ellipse 55% 42% at 100% 102%, var(--neon-glow-soft), transparent);
+  }
+
+  .neon-surface {
+    @apply border-primary/25 shadow-[0_0_44px_-14px_var(--neon-glow)];
+  }
+
+  /* shadcn-style native controls for pages not yet on <Input /> */
+  .native-field {
+    @apply w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm transition-colors;
+    @apply placeholder:text-muted-foreground;
+    @apply hover:border-input focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/45;
+    @apply disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .native-field-sm {
+    @apply py-1.5;
+  }
+
+  .native-label {
+    @apply mb-1 block text-sm font-medium text-foreground;
+  }
+
+  .data-table-head {
+    @apply border-b border-border bg-muted/50;
+  }
+
+  .data-table-th {
+    @apply px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground;
+  }
+
+  .data-table-row {
+    @apply transition-colors hover:bg-muted/40;
+  }
+
+  .data-table-cell {
+    @apply px-4 py-3 text-foreground;
+  }
+
+  .data-table-body {
+    @apply divide-y divide-border;
+  }
+}
