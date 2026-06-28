@@ -34,7 +34,7 @@ jobs:
 
       - name: Build Project
         env: 
-          VITE_API_URL: ${{ vars.VITE_API_URL }}
+          VITE_API_URL: 'https://straggler-twistable-carwash.ngrok-free.dev'
         run: npm run build # This runs the TypeScript compiler and Vite build
 
       - name: Upload Production Files
