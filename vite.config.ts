@@ -5,7 +5,6 @@
   import path from 'path';
 
   export default defineConfig({
-    base: '/HPC_UI/',
     plugins: [react(), tailwindcss()],
     resolve: {
       extensions: ['.js', '.jsx', '.ts', '.tsx', '.json'],
