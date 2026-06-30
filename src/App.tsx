@@ -18,7 +18,7 @@ import HelpPage from "@/pages/HelpPage";
 
 export default function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename="/HPC_UI">
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route element={<RequireAuth />}>
