@@ -1,4 +1,4 @@
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { HashRouter, Navigate, Route, Routes } from "react-router-dom";
 import { RequireAuth } from "@/components/auth/RequireAuth";
 import { AdminDashboard } from "@/components/AdminDashboard";
 import { ClusterBuilder } from "@/components/ClusterBuilder";
@@ -17,8 +17,8 @@ import LoginPage from "@/pages/LoginPage";
 import HelpPage from "@/pages/HelpPage";
 
 export default function App() {
-  return (
-    <BrowserRouter basename="/HPC_UI">
+ return (
+    <HashRouter>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route element={<RequireAuth />}>
@@ -41,6 +41,6 @@ export default function App() {
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
-    </BrowserRouter>
+    </HashRouter>
   );
 }
